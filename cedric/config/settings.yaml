@@ -1,0 +1,42 @@
+hotkey: ctrl+alt+space
+thresholds:
+  high_confidence: 85
+  low_confidence: 65
+timeouts:
+  silence_timeout_sec: 5.0
+  explorer_inactivity_sec: 15.0
+wakeword:
+  engine: vosk
+  keyword: Cedric
+  keyword_path: cedric/config/cedric_windows.ppn
+  access_key_env: PICOVOICE_ACCESS_KEY
+  sensitivity: 0.65
+audio:
+  sample_rate: 16000
+  frame_length: 512
+  channels: 1
+stt:
+  model_name: vosk-model-small-en-us-0.15
+  model_path: ''
+tts:
+  rate: 185
+  volume: 1.0
+  voice: ''
+explorer:
+  start_folder: '~'
+  show_hidden: false
+  max_entries: 500
+  alias_file: cedric/config/explorer_aliases.yaml
+paths:
+  chrome: C:\Program Files\Google\Chrome\Application\chrome.exe
+  vscode: C:\Users\DELL\AppData\Local\Programs\Microsoft VS Code\Code.exe
+  antigravity: C:\Users\DELL\AppData\Local\Programs\antigravity\Antigravity.exe
+  opencode: C:\Users\DELL\AppData\Local\Programs\@opencode-aidesktop\OpenCode.exe
+  postman: C:\Users\DELL\AppData\Local\Postman\Postman.exe
+  spotify: C:\Users\DELL\AppData\Roaming\Spotify\Spotify.exe
+  terminal: C:\Users\DELL\AppData\Local\Microsoft\WindowsApps\wt.exe
+logging:
+  file: logs/cedric.log
+  max_bytes: 5242880
+  backup_count: 5
+  level: INFO

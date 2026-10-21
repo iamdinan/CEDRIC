@@ -1,0 +1,14 @@
+# Explorer aliases for difficult or custom spoken names
+# Format: spoken name: "folder or file path"
+
+downloads: "~/Downloads"
+my downloads: "~/Downloads"
+documents: "~/Documents"
+my documents: "~/Documents"
+desktop: "~/Desktop"
+my desktop: "~/Desktop"
+pictures: "~/Pictures"
+my pictures: "~/Pictures"
+music: "~/Music"
+videos: "~/Videos"
+cedric project: "C:/Users/DELL/Desktop/Dinan/Projects/CEDRIC"

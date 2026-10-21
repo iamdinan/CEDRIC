@@ -1,0 +1,160 @@
+# Cedric Commands Registry (commands.yaml)
+# Phase 1 Command Registry with Phase 2 LLM prompt hooks (description, parameters)
+
+- id: youtube
+  name: YouTube
+  description: "Opens YouTube website in Google Chrome"
+  parameters: {}
+  aliases: ["youtube", "you tube"]
+  type: url
+  target: "https://www.youtube.com"
+  browser: chrome
+  needs_internet: true
+  reply: "Opening YouTube."
+
+- id: file_explorer
+  name: File Explorer
+  description: "Enters Cedric voice-driven File Explorer navigation mode"
+  parameters: {}
+  aliases: ["file explorer", "explorer", "files"]
+  type: special
+  target: "explorer_nav"
+  needs_internet: false
+  reply: "Opening File Explorer."
+
+- id: vscode
+  name: Visual Studio Code
+  description: "Launches or focuses Visual Studio Code editor"
+  parameters: {}
+  aliases: ["vs code", "vscode", "visual studio code", "code editor"]
+  type: exe
+  target: "vscode"
+  needs_internet: false
+  reply: "Opening VS Code."
+
+- id: github
+  name: GitHub
+  description: "Opens GitHub website in Google Chrome"
+  parameters: {}
+  aliases: ["github", "git hub"]
+  type: url
+  target: "https://github.com"
+  browser: chrome
+  needs_internet: true
+  reply: "Opening GitHub."
+
+- id: mail
+  name: Gmail
+  description: "Opens Gmail / Google Mail in Google Chrome"
+  parameters: {}
+  aliases: ["mail", "mails", "gmail", "email"]
+  type: url
+  target: "https://mail.google.com"
+  browser: chrome
+  needs_internet: true
+  reply: "Opening Gmail."
+
+- id: whatsapp
+  name: WhatsApp Web
+  description: "Opens WhatsApp Web in Google Chrome"
+  parameters: {}
+  aliases: ["whatsapp", "whats app"]
+  type: url
+  target: "https://web.whatsapp.com"
+  browser: chrome
+  needs_internet: true
+  reply: "Opening WhatsApp."
+
+- id: claude
+  name: Claude AI
+  description: "Opens Claude AI website in Google Chrome"
+  parameters: {}
+  aliases: ["claude", "clawed", "cloud"]
+  type: url
+  target: "https://claude.ai"
+  browser: chrome
+  needs_internet: true
+  reply: "Opening Claude."
+
+- id: gemini
+  name: Google Gemini
+  description: "Opens Google Gemini website in Google Chrome"
+  parameters: {}
+  aliases: ["gemini"]
+  type: url
+  target: "https://gemini.google.com"
+  browser: chrome
+  needs_internet: true
+  reply: "Opening Gemini."
+
+- id: chatgpt
+  name: ChatGPT
+  description: "Opens ChatGPT website in Google Chrome"
+  parameters: {}
+  aliases: ["chat gpt", "chatgpt"]
+  type: url
+  target: "https://chatgpt.com"
+  browser: chrome
+  needs_internet: true
+  reply: "Opening ChatGPT."
+
+- id: settings
+  name: Windows Settings
+  description: "Opens Windows Settings app"
+  parameters: {}
+  aliases: ["settings", "windows settings"]
+  type: uri
+  target: "ms-settings:"
+  needs_internet: false
+  reply: "Opening Windows Settings."
+
+- id: terminal
+  name: Windows Terminal
+  description: "Launches Windows Terminal command line"
+  parameters: {}
+  aliases: ["terminal", "new terminal", "command line"]
+  type: exe
+  target: "wt.exe"
+  needs_internet: false
+  reply: "Opening Terminal."
+
+- id: antigravity
+  name: Antigravity
+  description: "Launches or focuses Antigravity application"
+  parameters: {}
+  aliases: ["antigravity", "anti gravity"]
+  type: exe
+  target: "antigravity"
+  needs_internet: false
+  reply: "Opening Antigravity."
+
+- id: opencode
+  name: OpenCode
+  description: "Launches or focuses OpenCode desktop application"
+  parameters: {}
+  aliases: ["opencode", "open code"]
+  type: exe
+  target: "opencode"
+  needs_internet: false
+  reply: "Opening OpenCode."
+
+- id: postman
+  name: Postman
+  description: "Launches or focuses Postman API client"
+  parameters: {}
+  aliases: ["postman", "post man"]
+  type: exe
+  target: "postman"
+  needs_internet: false
+  reply: "Opening Postman."
+
+- id: spotify
+  name: Spotify
+  description: "Launches or focuses Spotify music player"
+  parameters: {}
+  aliases: ["spotify"]
+  type: uri
+  target: "spotify:"
+  fallback_exe: "spotify"
+  needs_internet: false
+  reply: "Opening Spotify."
