@@ -7,17 +7,48 @@ __pycache__/
 .venv/
 env/
 venv/
+ENV/
 
-# Pytest & test caches
+# Environment variables & secrets
+.env
+.env.*
+*.env
+
+# Picovoice trained keyword files (license-bound binaries)
+*.ppn
+
+# Pytest & test coverage caches
 .pytest_cache/
 .coverage
+.coverage.*
 htmlcov/
 
-# Cedric runtime logs
+# Cedric runtime logs & recordings
 logs/
 *.log
+*.wav
 
-# Models archive
+# IDE & Editor folders
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Windows & OS metadata
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.DS_Store
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+
+# Model archives
 *.zip
 *.tar.gz
+*.tar.bz2
+
 
