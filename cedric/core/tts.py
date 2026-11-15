@@ -40,6 +40,9 @@ class Pyttsx3Speaker(Speaker):
         self.on_finish = on_finish
         self._lock = threading.Lock()
         self._engine = None
+        # BUG-09 fix: separate flag so stop() can signal the engine without
+        # waiting for the speak() lock, allowing mid-speech interruption.
+        self._stop_requested = threading.Event()
         self._init_engine()
 
     def _init_engine(self) -> None:
@@ -61,6 +64,8 @@ class Pyttsx3Speaker(Speaker):
             return
 
         with self._lock:
+            self._stop_requested.clear()
+
             if self.on_start:
                 try:
                     self.on_start()
@@ -89,10 +94,14 @@ class Pyttsx3Speaker(Speaker):
                         logger.debug(f"Error in on_finish callback: {e}")
 
     def stop(self) -> None:
-        with self._lock:
-            if self._engine:
-                try:
-                    self._engine.stop()
-                except Exception as e:
-                    logger.debug(f"Error stopping TTS: {e}")
+        # BUG-09 fix: signal the stop event first (non-blocking), then try the
+        # engine stop without waiting for the speak() lock.  This lets stop()
+        # interrupt an in-progress runAndWait() from another thread.
+        self._stop_requested.set()
+        engine = self._engine  # snapshot reference without locking
+        if engine:
+            try:
+                engine.stop()
+            except Exception as e:
+                logger.debug(f"Error stopping TTS: {e}")
 

@@ -244,10 +244,22 @@ class CedricAssistant:
             self._save_settings()
 
     def _update_stt_grammar(self) -> None:
-        """Builds grammar from commands and control words."""
+        """Builds grammar from commands and control words.
+
+        NEW-07 fix: meta-command phrases are added in their raw (un-normalized)
+        form so Vosk can hear the actual spoken words (e.g. 'repeat that',
+        'stop listening').  Previously they were extended as-is which is correct,
+        but we now also include individual words from each phrase so the grammar
+        recogniser can hear partial utterances.
+        """
         phrases = self.registry.get_all_spoken_phrases()
         for meta_list in RuleRouter.META_COMMANDS.values():
-            phrases.extend(meta_list)
+            for phrase in meta_list:
+                phrases.append(phrase)
+                # Also add individual words from each phrase for partial coverage
+                for word in phrase.split():
+                    if word not in ("[unk]",):
+                        phrases.append(word)
         self.stt.set_grammar(phrases)
 
     def _on_speaker_start(self) -> None:
@@ -362,7 +374,9 @@ class CedricAssistant:
 
         if is_timeout:
             self.logger.info("Listening ended with silence or timeout.")
-            self.speaker.speak("Nothing heard. Going back to sleep.")
+            # BUG-05 fix: removed misleading "Going back to sleep" — Cedric stays
+            # awake (wake-word still active); only "stop listening" triggers sleep.
+            self.speaker.speak("Nothing heard.")
             self.state = self.STATE_IDLE
             return
 
@@ -394,21 +408,29 @@ class CedricAssistant:
         elif result.status == "clarification" and result.command:
             self.pending_confirmation_cmd = result.command
             self.state = self.STATE_AWAITING_CONFIRMATION
-            self.speaker.speak(result.clarification_prompt or f"Did you mean {result.command.name}?")
+            clarification_text = result.clarification_prompt or f"Did you mean {result.command.name}?"
+            # BUG-04 fix: update context so "repeat that" can replay this prompt
+            self.router_context.update(reply=clarification_text)
+            self.speaker.speak(clarification_text)
 
         else:
-            # Strip Vosk unknown tokens before reading aloud
-            clean_utt = re.sub(r'\[unk\]', '', text).strip()
+            # Strip any residual Vosk unknown tokens before reading aloud
+            # (belt-and-suspenders; stt.py strips them at source now — BUG-01)
+            clean_utt = re.sub(r'\[unk\]', '', text, flags=re.IGNORECASE).strip()
             if clean_utt:
-                self.speaker.speak(f"Sorry, I didn't get that. I heard: {clean_utt}.")
+                sorry_text = f"Sorry, I didn't get that. I heard: {clean_utt}."
             else:
-                self.speaker.speak("Sorry, I didn't catch that.")
+                sorry_text = "Sorry, I didn't catch that."
+            # BUG-04 fix: update context so "repeat that" can replay the sorry message
+            self.router_context.update(reply=sorry_text)
+            self.speaker.speak(sorry_text)
             self.state = self.STATE_IDLE
 
     def _handle_meta_action(self, meta_action: Optional[str]) -> None:
         """Handles built-in meta actions."""
         if meta_action == "cancel":
             self.speaker.speak("Cancelled.")
+            self.router_context.update(reply="Cancelled.")
             self.pending_confirmation_cmd = None
             self.state = self.STATE_IDLE
 
@@ -421,14 +443,25 @@ class CedricAssistant:
             self.state = self.STATE_IDLE
 
         elif meta_action == "stop_listening":
-            self.speaker.speak("Going to sleep. Press control alt space to wake me.")
+            msg = "Going to sleep. Press Control Alt Space to wake me."
+            self.router_context.update(reply=msg)
+            self.speaker.speak(msg)
             self.sleep_paused = True
             self.state = self.STATE_IDLE
 
         elif meta_action == "what_can_you_do":
             names = [cmd.name for cmd in self.registry.all_commands()]
-            spoken_names = ", ".join(names[:10]) + ", and more."
-            self.speaker.speak(f"I can open {spoken_names}")
+            total = len(names)
+            shown = names[:10]
+            # BUG-13 fix: grammatically clean "and N more" suffix
+            if total > len(shown):
+                suffix = f" and {total - len(shown)} more"
+            else:
+                suffix = ""
+            spoken_names = ", ".join(shown) + suffix + "."
+            msg = f"I can open {spoken_names}"
+            self.router_context.update(reply=msg)
+            self.speaker.speak(msg)
             self.state = self.STATE_IDLE
 
         else:
@@ -436,13 +469,22 @@ class CedricAssistant:
 
     def _execute_command(self, cmd) -> None:
         """Executes a matched command."""
+        # BUG-08 fix: guard against a None cmd being passed when pending_confirmation_cmd
+        # was cleared mid-clarification-chain before this method is reached.
+        if cmd is None:
+            self.logger.warning("_execute_command called with None command — ignoring.")
+            self.state = self.STATE_IDLE
+            return
+
         self.state = self.STATE_IDLE
         self.pending_confirmation_cmd = None
 
         # Check internet requirement
         if cmd.needs_internet and not is_online():
             self.logger.warning(f"Command '{cmd.name}' requires internet, but device is offline.")
-            self.speaker.speak("No internet connection.")
+            no_net_msg = "No internet connection."
+            self.router_context.update(reply=no_net_msg)
+            self.speaker.speak(no_net_msg)
             return
 
         # Special mode: File Explorer navigation
@@ -460,7 +502,9 @@ class CedricAssistant:
         # Launch action
         success = execute_action(cmd.to_dict(), self.settings.get("paths", {}))
         if not success:
-            self.speaker.speak(f"I couldn't open {cmd.name}.")
+            fail_msg = f"I couldn't open {cmd.name}."
+            self.router_context.update(reply=fail_msg)
+            self.speaker.speak(fail_msg)
 
     def _handle_confirmation_state(self) -> None:
         """AWAITING_CONFIRMATION: User answers yes/no for unsure matches."""
@@ -468,7 +512,9 @@ class CedricAssistant:
         transcript, is_timeout = self.stt.recognize_stream(self.audio_manager, silence_timeout_sec=4.0)
 
         if is_timeout or not transcript:
-            self.speaker.speak("Confirmation cancelled.")
+            cancelled_msg = "Confirmation cancelled."
+            self.router_context.update(reply=cancelled_msg)
+            self.speaker.speak(cancelled_msg)
             self.pending_confirmation_cmd = None
             self.state = self.STATE_IDLE
             return
@@ -478,14 +524,22 @@ class CedricAssistant:
 
         if norm in ("yes", "yeah", "yep", "sure", "correct", "do it", "open", "please"):
             cmd = self.pending_confirmation_cmd
+            # BUG-08 fix: clear pending before executing so a re-entrant clarification
+            # doesn't leave a stale cmd reference.
+            self.pending_confirmation_cmd = None
             self._execute_command(cmd)
         elif norm in ("no", "nope", "cancel", "never mind", "wrong"):
-            self.speaker.speak("Cancelled.")
+            cancelled_msg = "Cancelled."
+            self.router_context.update(reply=cancelled_msg)
+            self.speaker.speak(cancelled_msg)
             self.pending_confirmation_cmd = None
             self.state = self.STATE_IDLE
         else:
-            # Treat response as a fresh command
+            # BUG-08 fix: explicitly reset state to IDLE before re-routing so a
+            # second clarification result doesn't chain back into AWAITING_CONFIRMATION
+            # with a cleared pending_confirmation_cmd.
             self.pending_confirmation_cmd = None
+            self.state = self.STATE_IDLE
             self._route_utterance(transcript)
 
     def _enter_explorer_nav_mode(self) -> None:

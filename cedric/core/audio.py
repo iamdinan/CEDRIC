@@ -134,8 +134,12 @@ class AudioStreamManager:
                 break
 
     def resume(self) -> None:
-        """Resumes frame collection."""
-        self.flush()
+        """Resumes frame collection.
+
+        BUG-10 fix: removed the redundant flush() call here — pause() already
+        drains the queue, and no frames accumulate while is_paused=True, so
+        calling flush() again on resume was an unnecessary no-op loop.
+        """
         self.is_paused = False
 
     def flush(self) -> None:

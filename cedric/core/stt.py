@@ -1,6 +1,7 @@
 """Speech-to-Text (STT) interface and Vosk implementation with grammar and open-vocabulary modes."""
 
 import os
+import re
 import json
 import time
 import logging
@@ -8,6 +9,15 @@ from abc import ABC, abstractmethod
 from typing import List, Optional, Tuple, Dict, Any
 
 logger = logging.getLogger("cedric.stt")
+
+# BUG-01 fix: strip [unk] tokens that Vosk emits for unrecognised words before
+# the result reaches any routing or matching logic.
+_UNK_PATTERN = re.compile(r"\[unk\]", re.IGNORECASE)
+
+
+def _strip_unk(text: str) -> str:
+    """Removes Vosk '[unk]' tokens and collapses leftover whitespace."""
+    return re.sub(r"\s+", " ", _UNK_PATTERN.sub("", text)).strip()
 
 
 class STTEngine(ABC):
@@ -155,9 +165,12 @@ class VoskSTT(STTEngine):
 
             if rec.AcceptWaveform(frame):
                 res = json.loads(rec.Result())
-                text = res.get("text", "").strip()
+                raw_text = res.get("text", "").strip()
+                # BUG-01: strip [unk] tokens before returning
+                text = _strip_unk(raw_text)
+                if raw_text:
+                    logger.info(f"Grammar STT result (finalized): '{raw_text}' -> cleaned: '{text}'")
                 if text:
-                    logger.info(f"Grammar STT result (finalized): '{text}'")
                     return text, False
             else:
                 partial = json.loads(rec.PartialResult())
@@ -170,9 +183,12 @@ class VoskSTT(STTEngine):
 
         # Get final result from grammar recognizer
         final_res = json.loads(rec.FinalResult())
-        text = final_res.get("text", "").strip()
+        raw_text = final_res.get("text", "").strip()
+        # BUG-01: strip [unk] tokens before returning
+        text = _strip_unk(raw_text)
+        if raw_text:
+            logger.info(f"Grammar STT final result: '{raw_text}' -> cleaned: '{text}'")
         if text:
-            logger.info(f"Grammar STT final result: '{text}'")
             return text, False
 
         # Section 5 fallback: "If grammar recognition returns nothing usable,
@@ -185,7 +201,7 @@ class VoskSTT(STTEngine):
                     if open_rec.AcceptWaveform(f):
                         pass
                 open_res = json.loads(open_rec.FinalResult())
-                open_text = open_res.get("text", "").strip()
+                open_text = _strip_unk(open_res.get("text", "").strip())
                 if open_text:
                     logger.info(f"Open-vocabulary STT result: '{open_text}'")
                     return open_text, False

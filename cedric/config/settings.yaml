@@ -31,7 +31,7 @@ paths:
   chrome: C:\Program Files\Google\Chrome\Application\chrome.exe
   vscode: C:\Users\DELL\AppData\Local\Programs\Microsoft VS Code\Code.exe
   antigravity: C:\Users\DELL\AppData\Local\Programs\antigravity\Antigravity.exe
-  opencode: C:\Users\DELL\AppData\Local\Programs\@opencode-aidesktop\OpenCode.exe
+  opencode: C:\Program Files\OpenCode\opencode.EXE
   postman: C:\Users\DELL\AppData\Local\Postman\Postman.exe
   spotify: C:\Users\DELL\AppData\Roaming\Spotify\Spotify.exe
   terminal: C:\Users\DELL\AppData\Local\Microsoft\WindowsApps\wt.exe

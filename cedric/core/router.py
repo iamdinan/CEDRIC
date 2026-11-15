@@ -76,11 +76,13 @@ class RouterContext:
         self.pending_confirmation_command: Optional[CommandEntry] = None
 
     def update(self, action: Optional[str] = None, utterance: Optional[str] = None, reply: Optional[str] = None):
-        if action:
+        # NEW-02 fix: use `is not None` instead of truthiness check so callers
+        # can explicitly reset a field to an empty string when needed.
+        if action is not None:
             self.last_action = action
-        if utterance:
+        if utterance is not None:
             self.last_utterance = utterance
-        if reply:
+        if reply is not None:
             self.last_reply = reply
 
 
@@ -124,6 +126,10 @@ class RuleRouter(Router):
         "what_can_you_do": ["what can you do", "help", "list commands", "show commands", "what are your commands"],
     }
 
+    # NEW-04 fix: define the bare-trigger-word guard as a class constant so it
+    # is not re-created on every call to route().
+    _BARE_TRIGGER_WORDS = frozenset({"open", "start", "launch", "run", "pull up", "bring up"})
+
     def __init__(
         self,
         registry: CommandRegistry,
@@ -160,14 +166,24 @@ class RuleRouter(Router):
         self._build_target_index()
 
     def _check_meta_commands(self, normalized_text: str) -> Optional[Tuple[str, float]]:
-        """Checks for meta commands: cancel, repeat that, stop listening, what can you do."""
+        """Checks for meta commands: cancel, repeat that, stop listening, what can you do.
+
+        BUG-02 fix: use token_set_ratio so that short single-word commands like
+        'stop' or 'cancel' match their multi-word phrase entries correctly.
+        Also do an exact-word check first to guarantee single-word triggers fire.
+        """
         best_meta = None
         best_score = 0.0
 
         for meta_id, phrases in self.META_COMMANDS.items():
             for p in phrases:
                 norm_p = normalize_utterance(p)
-                score = fuzz.ratio(normalized_text, norm_p)
+                # Exact match always wins
+                if normalized_text == norm_p:
+                    return meta_id, 100.0
+                # token_set_ratio handles partial / reordered tokens better than
+                # plain ratio, so "stop" reliably matches "stop listening" etc.
+                score = fuzz.token_set_ratio(normalized_text, norm_p)
                 if score >= 85 and score > best_score:
                     best_score = score
                     best_meta = meta_id
@@ -179,6 +195,13 @@ class RuleRouter(Router):
     def route(self, text: str, context: Optional[RouterContext] = None) -> RoutingResult:
         normalized = normalize_utterance(text)
         if not normalized:
+            return RoutingResult("no_match", confidence=0.0)
+
+        # BUG-07 fix: a bare synonym trigger word with no target is meaningless —
+        # skip routing rather than letting it fuzzy-match unrelated command names.
+        # NEW-04: use the class-level frozenset constant instead of re-creating per call.
+        if normalized in self._BARE_TRIGGER_WORDS:
+            logger.info(f"Utterance '{normalized}' is a bare trigger word with no target — skipping routing.")
             return RoutingResult("no_match", confidence=0.0)
 
         # 1. Check meta commands

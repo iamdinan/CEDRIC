@@ -60,6 +60,19 @@ def normalize_fs_name(name: str) -> str:
 class ExplorerNavMode:
     """State machine controller for File Explorer voice navigation."""
 
+    # Words that — when spoken alone or as the whole utterance — always exit Explorer Nav.
+    # BUG-06 fix: keeping "cedric"/"hey cedric" as exit triggers is fragile because
+    # Vosk may include the wake-word in the STT grammar as a folder token.  We now
+    # use a dedicated set and check both exact match AND single-word containment so
+    # partial captures like "cedric done" still trigger exit.
+    EXIT_PHRASES = {
+        "exit", "done", "stop", "close", "cancel", "quit",
+        "exit explorer", "close explorer", "never mind", "nevermind",
+        "cedric", "hey cedric",
+    }
+    # Single keywords that trigger exit when found anywhere in the utterance
+    EXIT_KEYWORDS = {"exit", "done", "quit", "cedric"}
+
     CONTROL_WORDS = [
         "go back", "go up", "read this folder", "show more",
         "exit", "done", "one", "two", "three", "four", "five", "none",
@@ -236,11 +249,18 @@ class ExplorerNavMode:
         self.speaker.speak(f"File Explorer ready in {os.path.basename(self.current_path) or 'root'}.")
 
     def exit(self, reason: str = "done") -> None:
-        """Exits Explorer Navigation mode."""
+        """Exits Explorer Navigation mode.
+
+        NEW-01/06 fix: only speak the exit confirmation when the user explicitly
+        asked to exit ('user requested').  Caller-driven exits (e.g. inactivity
+        timeout) already speak their own message before calling this method, so
+        speaking 'Done.' here as well causes a double-TTS.
+        """
         self.is_active = False
         self.ambiguous_options.clear()
         logger.info(f"Exiting Explorer Nav mode (reason: {reason})")
-        self.speaker.speak("Done.")
+        if reason == "user requested":
+            self.speaker.speak("Done.")
 
     def handle_utterance(self, raw_text: str) -> bool:
         """Processes a voice command inside Explorer Nav mode.
@@ -251,11 +271,10 @@ class ExplorerNavMode:
         logger.info(f"Explorer Nav handling voice utterance: '{text}'")
 
         # 1. Exit / Done commands
-        if text in (
-            "exit", "done", "stop", "close", "cancel", "quit",
-            "exit explorer", "close explorer", "never mind", "nevermind",
-            "cedric", "hey cedric"
-        ):
+        # BUG-06 fix: check both exact phrase match and single-keyword containment
+        # so "cedric", "hey cedric", partial matches etc. all reliably exit.
+        words_in_text = set(text.split())
+        if text in self.EXIT_PHRASES or bool(words_in_text & self.EXIT_KEYWORDS):
             self.exit("user requested")
             return False
 
